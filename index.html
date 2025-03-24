@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Network Topology Visualizer</title>
+<style>
+body, html {
+margin: 0;
+padding: 0;
+width: 100%;
+height: 100vh;
+font-family: 'Courier New', monospace;
+overflow: hidden;
+background-color: #191128;
+color: #c8c8c8;
+}
+#container {
+width: 100%;
+height: 100vh;
+display: flex;
+flex-direction: column;
+position: relative;
+z-index: 1;
+}
+#controls {
+padding: 15px;
+background-color: rgba(30, 25, 45, 0.8);
+border-bottom: 1px solid #413a5a;
+display: flex;
+justify-content: space-between;
+align-items: center;
+color: #a5d6ff;
+}
+.tabs {
+display: flex;
+background-color: rgba(30, 25, 45, 0.8);
+border-bottom: 1px solid #413a5a;
+}
+.tab {
+padding: 10px 20px;
+cursor: pointer;
+border-right: 1px solid #413a5a;
+color: #a5d6ff;
+transition: all 0.3s ease;
+}
+.tab:hover {
+background-color: rgba(60, 50, 90, 0.8);
+}
+.tab.active {
+background-color: rgba(75, 65, 115, 0.8);
+border-bottom: 2px solid #a43fff;
+color: #ffffff;
+}
+.tab-content {
+display: none;
+height: 100%;
+}
+.tab-content.active {
+display: block;
+}
+#table-container {
+padding: 10px;
+overflow: auto;
+height: 100%;
+background-color: rgba(30, 25, 45, 0.7);
+}
+table {
+border-collapse: collapse;
+width: 100%;
+font-size: 14px;
+}
+th, td {
+border: 1px solid #413a5a;
+padding: 8px;
+text-align: left;
+}
+th {
+background-color: rgba(60, 50, 90, 0.9);
+color: #a5d6ff;
+position: sticky;
+top: 0;
+}
+tr:nth-child(even) {
+background-color: rgba(40, 35, 60, 0.5);
+}
+tr:hover {
+background-color: rgba(80, 70, 120, 0.5);
+}
+.hop-cell {
+white-space: nowrap;
+}
+.hop-cell.common {
+font-weight: bold;
+}
+/* New gradient-style background colors for common hops */
+.hop-color-0 { background: linear-gradient(to right, rgba(164, 63, 255, 0.3), rgba(164, 63, 255, 0.1)); color: #fff; }
+.hop-color-1 { background: linear-gradient(to right, rgba(0, 255, 136, 0.3), rgba(0, 255, 136, 0.1)); color: #fff; }
+.hop-color-2 { background: linear-gradient(to right, rgba(0, 191, 255, 0.3), rgba(0, 191, 255, 0.1)); color: #fff; }
+.hop-color-3 { background: linear-gradient(to right, rgba(255, 64, 225, 0.3), rgba(255, 64, 225, 0.1)); color: #fff; }
+.hop-color-4 { background: linear-gradient(to right, rgba(255, 79, 79, 0.3), rgba(255, 79, 79, 0.1)); color: #fff; }
+.hop-color-5 { background: linear-gradient(to right, rgba(255, 180, 0, 0.3), rgba(255, 180, 0, 0.1)); color: #fff; }
+.hop-color-6 { background: linear-gradient(to right, rgba(130, 216, 255, 0.3), rgba(130, 216, 255, 0.1)); color: #fff; }
+.hop-color-7 { background: linear-gradient(to right, rgba(0, 255, 255, 0.3), rgba(0, 255, 255, 0.1)); color: #fff; }
+.hop-color-8 { background: linear-gradient(to right, rgba(255, 105, 180, 0.3), rgba(255, 105, 180, 0.1)); color: #fff; }
+.hop-color-9 { background: linear-gradient(to right, rgba(50, 255, 126, 0.3), rgba(50, 255, 126, 0.1)); color: #fff; }
+#graph {
+flex-grow: 1;
+width: 100%;
+position: relative;
+overflow: hidden;
+height: calc(100% - 50px);
+}
+#info-panel {
+position: absolute;
+right: 20px;
+top: 120px;
+width: 300px;
+background-color: rgba(30, 25, 45, 0.9);
+border: 1px solid #413a5a;
+border-radius: 5px;
+padding: 15px;
+max-height: 80%;
+overflow-y: auto;
+box-shadow: 0 0 20px rgba(164, 63, 255, 0.3);
+display: none;
+color: #a5d6ff;
+}
+.node {
+cursor: pointer;
+}
+.link {
+stroke: #a43fff;
+stroke-opacity: 0.6;
+}
+.loader {
+border: 5px solid rgba(30, 25, 45, 0.3);
+border-top: 5px solid #a43fff;
+border-radius: 50%;
+width: 20px;
+height: 20px;
+animation: spin 2s linear infinite;
+display: inline-block;
+margin-left: 10px;
+display: none;
+}
+@keyframes spin {
+0% { transform: rotate(0deg); }
+100% { transform: rotate(360deg); }
+}
+
+/* Glowing neon buttons */
+button {
+background-color: #2d2649;
+color: #a5d6ff;
+border: 1px solid #523f8e;
+border-radius: 3px;
+padding: 8px 15px;
+font-family: 'Courier New', monospace;
+cursor: pointer;
+transition: all 0.3s ease;
+text-shadow: 0 0 5px rgba(165, 214, 255, 0.5);
+box-shadow: 0 0 10px rgba(164, 63, 255, 0.2);
+}
+button:hover {
+background-color: #413a5a;
+box-shadow: 0 0 15px rgba(164, 63, 255, 0.4);
+text-shadow: 0 0 8px rgba(165, 214, 255, 0.8);
+}
+
+/* Search input styling */
+input[type="text"] {
+background-color: #2d2649;
+color: #a5d6ff;
+border: 1px solid #523f8e;
+border-radius: 3px;
+padding: 8px;
+font-family: 'Courier New', monospace;
+}
+input[type="text"]::placeholder {
+color: #6e6394;
+}
+input[type="text"]:focus {
+outline: none;
+box-shadow: 0 0 10px rgba(164, 63, 255, 0.4);
+border-color: #a43fff;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+accent-color: #a43fff;
+}
+
+/* Text glitch effect for title */
+.glitch-text {
+position: relative;
+font-size: 1.5em;
+font-weight: bold;
+text-transform: uppercase;
+color: #a5d6ff;
+text-shadow: 0 0 10px rgba(165, 214, 255, 0.5);
+letter-spacing: 2px;
+}
+.glitch-text::before, .glitch-text::after {
+content: attr(data-text);
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+}
+.glitch-text::before {
+left: 2px;
+text-shadow: -2px 0 #a43fff;
+animation: glitch-1 2s infinite linear alternate-reverse;
+}
+.glitch-text::after {
+left: -2px;
+text-shadow: 2px 0 #00ffff;
+animation: glitch-2 3s infinite linear alternate-reverse;
+}
+@keyframes glitch-1 {
+0%, 80%, 100% { clip-path: inset(0 0 0 0); }
+20% { clip-path: inset(8% 0 15% 0); }
+40% { clip-path: inset(20% 0 5% 0); }
+60% { clip-path: inset(5% 0 25% 0); }
+}
+@keyframes glitch-2 {
+0%, 80%, 100% { clip-path: inset(0 0 0 0); }
+20% { clip-path: inset(15% 0 8% 0); }
+40% { clip-path: inset(5% 0 20% 0); }
+60% { clip-path: inset(25% 0 5% 0); }
+}
+
+/* Background grid effect */
+.grid {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background-image: 
+linear-gradient(rgba(164, 63, 255, 0.1) 1px, transparent 1px),
+linear-gradient(90deg, rgba(164, 63, 255, 0.1) 1px, transparent 1px);
+background-size: 20px 20px;
+z-index: -1;
+pointer-events: none;
+}
+
+/* Matrix-like falling code in background */
+.code-rain {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+z-index: -2;
+opacity: 0.1;
+pointer-events: none;
+}
+
+/* Custom node styles */
+.node-local {
+fill: #ff00ff;
+filter: drop-shadow(0 0 5px rgba(255, 0, 255, 0.7));
+}
+.node-remote {
+fill: #00ffff;
+filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.7));
+}
+.node-hop {
+fill: #a43fff;
+filter: drop-shadow(0 0 3px rgba(164, 63, 255, 0.7));
+}
+</style>
+</head>
+<body>
+<div id="vanta-background"></div>
+<div class="grid"></div>
+<div id="container">
+<div id="controls">
+<div>
+<h2 class="glitch-text" data-text="Network Topology Visualizer">Network Topology Visualizer</h2>
+</div>
+<div>
+<button id="scan-btn">[ SCAN NETWORK ]</button>
+<div id="loader" class="loader"></div>
+</div>
+</div>
+<div class="tabs">
+<div class="tab active" data-tab="graph">[ NETWORK GRAPH ]</div>
+<div class="tab" data-tab="table">[ HOP TABLE ]</div>
+</div>
+<div id="graph-tab" class="tab-content active">
+<div id="graph"></div>
+<div id="info-panel"></div>
+</div>
+<div id="table-tab" class="tab-content">
+<div id="table-container">
+<div id="table-controls" style="margin-bottom: 15px; padding: 10px; background-color: rgba(45, 38, 73, 0.8); border-radius: 5px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+    <div>
+      <button id="highlight-common-btn">[ HIGHLIGHT COMMON HOPS ]</button>
+    </div>
+    <div>
+      <label for="auto-refresh">Auto-refresh: </label>
+      <input type="checkbox" id="auto-refresh" checked>
+      <span id="refresh-counter"></span>
+    </div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <label for="ip-search">Search IP: </label>
+    <input type="text" id="ip-search" placeholder="Enter IP address..." style="padding: 5px; width: 200px;">
+    <button id="search-btn">[ SEARCH ]</button>
+    <button id="clear-search-btn">[ CLEAR ]</button>
+  </div>
+</div>
+<table id="hop-table">
+  <thead>
+    <tr id="hop-table-header">
+      <th>Target IP</th>
+      <!-- Hop columns will be added dynamically -->
+    </tr>
+  </thead>
+  <tbody id="hop-table-body">
+    <!-- Table content will be generated dynamically -->
+  </tbody>
+</table>
+</div>
+</div>
+</div>
+
+<!-- Vanta.js and Three.js for background effect -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.21/vanta.globe.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.0.0/d3.min.js"></script>
+<script>
+const { ipcRenderer } = require('electron');
+const os = require('os');
+
+// Initialize Vanta.js globe effect
+document.addEventListener('DOMContentLoaded', () => {
+if (window.VANTA) {
+window.vantaEffect = VANTA.GLOBE({
+  el: "#vanta-background",
+  mouseControls: true,
+  touchControls: true,
+  gyroControls: false,
+  minHeight: 200.00,
+  minWidth: 200.00,
+  scale: 1.00,
+  scaleMobile: 1.00,
+  color: 0xa43fff,
+  backgroundColor: 0x191128,
+  size: 1.5,
+  points: 10.00,
+  maxDistance: 25.00,
+  spacing: 20.00,
+  showDots: true
+});
+}
+});
+
+// Network data structures
+let nodes = [];
+let links = [];
+let nodeMap = {};
+let simulation;
+let svg;
+let container; // Store the container group reference
+
+// Data for the hop table
+let hopData = {};
+let maxHops = 0;
+let refreshInterval;
+let refreshCounter = 5;
+
+// Get local machine's hostname
+const hostname = os.hostname();
+
+// Initialization
+document.addEventListener('DOMContentLoaded', () => {
+initGraph();
+initTabs();
+
+// Set up event listeners
+document.getElementById('scan-btn').addEventListener('click', scanNetwork);
+document.getElementById('highlight-common-btn').addEventListener('click', highlightCommonHops);
+document.getElementById('auto-refresh').addEventListener('change', toggleAutoRefresh);
+document.getElementById('search-btn').addEventListener('click', searchIP);
+document.getElementById('clear-search-btn').addEventListener('click', clearIPSearch);
+
+// Setup IP search on Enter key
+document.getElementById('ip-search').addEventListener('keypress', (e) => {
+if (e.key === 'Enter') {
+  searchIP();
+}
+});
+
+// Set up IPC listeners
+ipcRenderer.on('active-connections', (event, connections) => {
+processConnections(connections);
+updateGraph();
+});
+
+ipcRenderer.on('traceroute-result', (event, data) => {
+processTraceroute(data.ip, data.hops);
+updateGraph();
+});
+
+ipcRenderer.on('network-scan-error', (event, error) => {
+console.error('Network scan error:', error);
+showError('Network scan failed: ' + error);
+document.getElementById('loader').style.display = 'none';
+});
+
+ipcRenderer.on('traceroute-error', (event, data) => {
+console.error('Traceroute error for IP', data.ip, ':', data.error);
+});
+
+// Start the refresh counter
+startRefreshCounter();
+
+// Add matrix-like falling code effect
+createMatrixEffect();
+});
+
+// Create matrix-like falling code background
+function createMatrixEffect() {
+const canvas = document.createElement('canvas');
+canvas.className = 'code-rain';
+document.body.appendChild(canvas);
+
+const ctx = canvas.getContext('2d');
+
+// Resize canvas to fill window
+function resizeCanvas() {
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+}
+
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Matrix effect
+const columns = Math.floor(canvas.width / 20);
+const drops = [];
+
+for (let i = 0; i < columns; i++) {
+drops[i] = Math.floor(Math.random() * canvas.height);
+}
+
+const characters = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン'.split('');
+
+function draw() {
+ctx.fillStyle = 'rgba(25, 17, 40, 0.05)';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+ctx.fillStyle = '#a43fff';
+ctx.font = '15px monospace';
+
+for (let i = 0; i < drops.length; i++) {
+  const text = characters[Math.floor(Math.random() * characters.length)];
+  ctx.fillText(text, i * 20, drops[i] * 20);
+  
+  if (drops[i] * 20 > canvas.height && Math.random() > 0.975) {
+    drops[i] = 0;
+  }
+  
+  drops[i]++;
+}
+
+requestAnimationFrame(draw);
+}
+
+draw();
+}
+
+function initTabs() {
+// Tab switching logic
+document.querySelectorAll('.tab').forEach(tab => {
+tab.addEventListener('click', () => {
+  // Deactivate all tabs
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  
+  // Activate clicked tab
+  tab.classList.add('active');
+  const tabId = tab.getAttribute('data-tab') + '-tab';
+  document.getElementById(tabId).classList.add('active');
+});
+});
+}
+
+function initGraph() {
+const graphDiv = document.getElementById('graph');
+const width = graphDiv.clientWidth;
+const height = graphDiv.clientHeight;
+
+// Add the local machine as the center node
+nodes = [{
+id: 'local',
+name: hostname,
+type: 'local',
+x: width / 2,
+y: height / 2,
+fixed: true
+}];
+
+nodeMap['local'] = nodes[0];
+
+// Create the SVG container
+svg = d3.select('#graph')
+.append('svg')
+.attr('width', '100%')
+.attr('height', '100%')
+.attr('preserveAspectRatio', 'xMidYMid meet')
+.call(d3.zoom().scaleExtent([0.1, 4]).on('zoom', (event) => {
+  container.attr('transform', event.transform);
+}));
+
+// Add a group for all elements
+container = svg.append('g')
+.attr('id', 'container');
+
+// Create arrow marker for links
+svg.append('defs').append('marker')
+.attr('id', 'arrowhead')
+.attr('viewBox', '-0 -5 10 10')
+.attr('refX', 20)
+.attr('refY', 0)
+.attr('orient', 'auto')
+.attr('markerWidth', 6)
+.attr('markerHeight', 6)
+.attr('xoverflow', 'visible')
+.append('svg:path')
+.attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+.attr('fill', '#a43fff')
+.style('stroke', 'none');
+
+// Initialize the force simulation
+simulation = d3.forceSimulation(nodes)
+.force('link', d3.forceLink(links).id(d => d.id).distance(100))
+.force('charge', d3.forceManyBody().strength(-300))
+.force('center', d3.forceCenter(width / 2, height / 2))
+.on('tick', ticked);
+
+// Define tick function for force layout
+function ticked() {
+const linkElements = container.selectAll('.link')
+  .data(links)
+  .join('line')
+  .attr('class', 'link')
+  .attr('x1', d => d.source.x)
+  .attr('y1', d => d.source.y)
+  .attr('x2', d => d.target.x)
+  .attr('y2', d => d.target.y)
+  .attr('marker-end', 'url(#arrowhead)')
+  .attr('stroke-width', d => Math.max(1, 3 - d.level))
+  .attr('stroke-dasharray', d => d.type === 'hop' ? '5,5' : null);
+
+const nodeElements = container.selectAll('.node')
+  .data(nodes)
+  .join('g')
+  .attr('class', d => `node node-${d.type}`)
+  .attr('transform', d => `translate(${d.x},${d.y})`)
+  .call(d3.drag()
+    .on('start', dragstarted)
+    .on('drag', dragged)
+    .on('end', dragended))
+  .on('click', nodeClicked);
+
+nodeElements.selectAll('circle').remove();
+nodeElements.append('circle')
+  .attr('r', d => {
+    if (d.type === 'local') return 15;
+    if (d.type === 'remote') return 10;
+    return 5;
+  });
+
+nodeElements.selectAll('text').remove();
+nodeElements.append('text')
+  .attr('dx', d => d.type === 'local' ? 20 : 12)
+  .attr('dy', 4)
+  .attr('fill', '#a5d6ff')
+  .attr('stroke', 'none')
+  .attr('stroke-width', 0.5)
+  .text(d => {
+    if (d.type === 'local') return d.name;
+    if (d.type === 'remote') return d.name || d.id;
+    return ''; // Don't show text for hop nodes by default
+  });
+}
+
+function dragstarted(event, d) {
+if (!event.active) simulation.alphaTarget(0.3).restart();
+d.fx = d.x;
+d.fy = d.y;
+}
+
+function dragged(event, d) {
+d.fx = event.x;
+d.fy = event.y;
+}
+
+function dragended(event, d) {
+if (!event.active) simulation.alphaTarget(0);
+// Prevent the local node from being moved
+if (d.type !== 'local') {
+  d.fx = null;
+  d.fy = null;
+}
+}
+
+function nodeClicked(event, d) {
+const infoPanel = document.getElementById('info-panel');
+infoPanel.innerHTML = '';
+infoPanel.style.display = 'block';
+
+let html = `<h3>${d.name || d.id}</h3>`;
+html += `<p>Type: ${d.type}</p>`;
+
+if (d.type === 'remote') {
+  html += `<p>IP: ${d.id}</p>`;
+  if (d.ports && d.ports.length) {
+    html += `<p>Connected Ports: ${d.ports.join(', ')}</p>`;
+  }
+} else if (d.type === 'hop') {
+  html += `<p>IP: ${d.id}</p>`;
+  if (d.latency) {
+    html += `<p>Avg Latency: ${d.latency.toFixed(2)} ms</p>`;
+  }
+  html += `<p>Hop Number: ${d.hop}</p>`;
+}
+
+infoPanel.innerHTML = html;
+
+event.stopPropagation();
+}
+
+// Hide info panel when clicking on the SVG background
+svg.on('click', () => {
+document.getElementById('info-panel').style.display = 'none';
+});
+}
+
+function scanNetwork() {
+document.getElementById('loader').style.display = 'inline-block';
+
+// Reset data structures but keep the local node
+nodes = [nodeMap['local']];
+links = [];
+nodeMap = { 'local': nodeMap['local'] };
+hopData = {};
+maxHops = 0;
+
+ipcRenderer.send('scan-network');
+
+// Add scan effect
+const scanBtn = document.getElementById('scan-btn');
+scanBtn.style.boxShadow = '0 0 20px rgba(164, 63, 255, 0.8)';
+setTimeout(() => {
+scanBtn.style.boxShadow = '0 0 10px rgba(164, 63, 255, 0.2)';
+}, 2000);
+}
+
+function startRefreshCounter() {
+// Clear any existing interval
+if (refreshInterval) {
+clearInterval(refreshInterval);
+}
+
+refreshCounter = 5;
+updateRefreshCounter();
+
+refreshInterval = setInterval(() => {
+refreshCounter--;
+updateRefreshCounter();
+
+if (refreshCounter <= 0) {
+  refreshCounter = 5;
+  if (document.getElementById('auto-refresh').checked) {
+    scanNetwork();
+  }
+}
+}, 1000);
+}
+
+function updateRefreshCounter() {
+document.getElementById('refresh-counter').textContent = 
+`(Refreshing in ${refreshCounter}s)`;
+}
+
+function toggleAutoRefresh(event) {
+if (event.target.checked) {
+startRefreshCounter();
+} else {
+if (refreshInterval) {
+  clearInterval(refreshInterval);
+  document.getElementById('refresh-counter').textContent = '(Auto-refresh paused)';
+}
+}
+}
+
+function processConnections(connections) {
+connections.forEach(conn => {
+// Skip loopback connections
+if (conn.remoteIp === '127.0.0.1' || conn.remoteIp === '::1') return;
+
+// Add remote node if it doesn't exist
+if (!nodeMap[conn.remoteIp]) {
+  const node = {
+    id: conn.remoteIp,
+    name: conn.remoteIp,
+    type: 'remote',
+    ports: [conn.remotePort]
+  };
+  
+  nodes.push(node);
+  nodeMap[conn.remoteIp] = node;
+  
+  // Add link from local to remote
+  links.push({
+    source: 'local',
+    target: conn.remoteIp,
+    type: 'direct',
+    level: 1
+  });
+} else if (nodeMap[conn.remoteIp].ports && !nodeMap[conn.remoteIp].ports.includes(conn.remotePort)) {
+  // Add port to existing node if not already there
+  nodeMap[conn.remoteIp].ports.push(conn.remotePort);
+}
+});
+}
+
+function processTraceroute(targetIp, hops) {
+// Process traceroute results by adding hop nodes and links
+
+// First, check if we have the target in our nodes
+if (!nodeMap[targetIp]) {
+// If somehow we don't have the target IP, add it
+const node = {
+  id: targetIp,
+  name: targetIp,
+  type: 'remote'
+};
+
+nodes.push(node);
+nodeMap[targetIp] = node;
+}
+
+let previousNodeId = 'local';
+
+// Process each hop
+hops.forEach((hop, index) => {
+// Skip the destination IP as we already have it
+if (hop.ip === targetIp && index === hops.length - 1) return;
+
+const hopNodeId = `hop_${hop.ip}_${hop.hop}`;
+
+// Add hop node if it doesn't exist
+if (!nodeMap[hopNodeId]) {
+  const node = {
+    id: hopNodeId,
+    name: hop.ip,
+    type: 'hop',
+    hop: hop.hop,
+    latency: hop.latency
+  };
+  
+  nodes.push(node);
+  nodeMap[hopNodeId] = node;
+}
+
+// Add link from previous node to this hop
+links.push({
+  source: previousNodeId,
+  target: hopNodeId,
+  type: 'hop',
+  level: 2
+});
+
+previousNodeId = hopNodeId;
+});
+
+// Finally, add link from the last hop to the destination
+// Only if we have hops and the last hop isn't the destination
+if (hops.length > 0 && previousNodeId !== 'local' && previousNodeId !== targetIp) {
+links.push({
+  source: previousNodeId,
+  target: targetIp,
+  type: 'hop',
+  level: 2
+});
+}
+
+// Update hop data for table view
+const hopArray = [];
+hops.forEach(hop => {
+// Skip the final hop if it's the target IP (it's redundant)
+if (hop.ip !== targetIp || hop.hop !== hops.length) {
+  hopArray.push({
+    ip: hop.ip,
+    latency: hop.latency,
+    hopNumber: hop.hop
+  });
+}
+});
+
+// Add the target as the final destination if not already included
+if (hops.length > 0 && hops[hops.length - 1].ip !== targetIp) {
+hopArray.push({
+  ip: targetIp,
+  latency: 0,
+  hopNumber: hops.length + 1
+});
+}
+
+// Update the global hop data
+hopData[targetIp] = hopArray;
+
+// Update max hops
+const currentHopCount = hopArray.length;
+if (currentHopCount > maxHops) {
+maxHops = currentHopCount;
+}
+
+// Update the table
+updateHopTable();
+}
+
+function updateHopTable() {
+// Get the table header and body
+const tableHeader = document.getElementById('hop-table-header');
+const tableBody = document.getElementById('hop-table-body');
+
+// Clear existing content (except the first cell)
+while (tableHeader.children.length > 1) {
+tableHeader.removeChild(tableHeader.lastChild);
+}
+
+// Clear table body
+tableBody.innerHTML = '';
+
+// Add hop number columns to header
+for (let i = 1; i <= maxHops; i++) {
+const th = document.createElement('th');
+th.textContent = `Hop ${i}`;
+tableHeader.appendChild(th);
+}
+
+// Get search value
+const searchValue = document.getElementById('ip-search').value.trim().toLowerCase();
+
+// Add rows for each target IP
+for (const targetIp in hopData) {
+// Skip if search is active and doesn't match
+if (searchValue && !targetIp.toLowerCase().includes(searchValue)) {
+  let matchInHops = false;
+  // Check if any hop IPs match the search
+  const hops = hopData[targetIp];
+  for (const hop of hops) {
+    if (hop.ip.toLowerCase().includes(searchValue)) {
+      matchInHops = true;
+      break;
+    }
+  }
+  if (!matchInHops) continue;
+}
+
+const tr = document.createElement('tr');
+
+// Add target IP cell
+const tdIp = document.createElement('td');
+tdIp.textContent = targetIp;
+
+// If search is active and matches this row, highlight it
+if (searchValue && targetIp.toLowerCase().includes(searchValue)) {
+  tdIp.style.backgroundColor = 'rgba(164, 63, 255, 0.3)';
+  tdIp.style.fontWeight = 'bold';
+  tdIp.style.textShadow = '0 0 5px rgba(164, 63, 255, 0.5)';
+}
+
+tr.appendChild(tdIp);
+
+// Add cells for each hop
+const hops = hopData[targetIp];
+
+// Create a hop map by hop number for easier lookup
+const hopMap = {};
+hops.forEach(hop => {
+  hopMap[hop.hopNumber] = hop;
+});
+
+// Add cells for each possible hop position
+for (let i = 1; i <= maxHops; i++) {
+  const td = document.createElement('td');
+  td.classList.add('hop-cell');
+  
+  if (hopMap[i]) {
+    const hop = hopMap[i];
+    td.textContent = hop.ip;
+    td.setAttribute('data-ip', hop.ip);
+    
+    // Highlight cell if it matches the search term
+    if (searchValue && hop.ip.toLowerCase().includes(searchValue)) {
+      td.style.backgroundColor = 'rgba(164, 63, 255, 0.3)';
+      td.style.fontWeight = 'bold';
+      td.style.textShadow = '0 0 5px rgba(164, 63, 255, 0.5)';
+    }
+    
+    if (hop.latency) {
+      td.setAttribute('title', `Latency: ${hop.latency.toFixed(2)} ms`);
+    }
+  } else {
+    td.textContent = '-';
+  }
+  
+  tr.appendChild(td);
+}
+
+tableBody.appendChild(tr);
+}
+
+// Show message if no results found
+if (searchValue && tableBody.children.length === 0) {
+const noResultRow = document.createElement('tr');
+const noResultCell = document.createElement('td');
+noResultCell.colSpan = maxHops + 1;
+noResultCell.textContent = `No results found for "${searchValue}"`;
+noResultCell.style.textAlign = 'center';
+noResultCell.style.padding = '20px';
+noResultRow.appendChild(noResultCell);
+tableBody.appendChild(noResultRow);
+}
+}
+
+function searchIP() {
+const searchValue = document.getElementById('ip-search').value.trim();
+if (searchValue) {
+// Update the table with search filter applied
+updateHopTable();
+
+// Switch to table tab if we're not already there
+if (!document.getElementById('table-tab').classList.contains('active')) {
+  document.querySelector('.tab[data-tab="table"]').click();
+}
+
+// Add the "searching" effect
+const searchBox = document.getElementById('ip-search');
+searchBox.style.boxShadow = '0 0 15px rgba(164, 63, 255, 0.8)';
+setTimeout(() => {
+  searchBox.style.boxShadow = '0 0 10px rgba(164, 63, 255, 0.4)';
+}, 1000);
+}
+}
+
+function clearIPSearch() {
+document.getElementById('ip-search').value = '';
+updateHopTable();
+}
+
+function highlightCommonHops() {
+// First, clear existing highlights
+document.querySelectorAll('.hop-cell').forEach(cell => {
+cell.classList.remove('common');
+// Remove all color classes
+for (let i = 0; i < 10; i++) {
+  cell.classList.remove(`hop-color-${i}`);
+}
+});
+
+// Count occurrences of each IP address
+const ipCounts = {};
+document.querySelectorAll('.hop-cell[data-ip]').forEach(cell => {
+const ip = cell.getAttribute('data-ip');
+ipCounts[ip] = (ipCounts[ip] || 0) + 1;
+});
+
+// Collect common IPs (occurring more than once)
+const commonIps = [];
+for (const ip in ipCounts) {
+if (ipCounts[ip] > 1) {
+  commonIps.push(ip);
+}
+}
+
+// Assign different colors to each common IP
+commonIps.forEach((ip, index) => {
+const colorIndex = index % 10; // We have 10 colors defined
+document.querySelectorAll(`.hop-cell[data-ip="${ip}"]`).forEach(cell => {
+  cell.classList.add('common');
+  cell.classList.add(`hop-color-${colorIndex}`);
+  // Add tooltip showing how many times this hop appears
+  cell.setAttribute('title', `${ip} (appears ${ipCounts[ip]} times)`);
+});
+});
+
+// Show message with count of common hops
+const message = commonIps.length > 0 
+? `Found ${commonIps.length} common hop(s) in your network` 
+: 'No common hops found';
+
+// Add or update message element
+let messageEl = document.getElementById('common-hops-message');
+if (!messageEl) {
+messageEl = document.createElement('div');
+messageEl.id = 'common-hops-message';
+messageEl.style.margin = '10px 0';
+messageEl.style.color = '#a5d6ff';  // Add text color to match theme
+document.getElementById('table-controls').appendChild(messageEl);
+}
+messageEl.textContent = message;
+
+// Add highlight effect
+const highlightBtn = document.getElementById('highlight-common-btn');
+highlightBtn.style.boxShadow = '0 0 15px rgba(164, 63, 255, 0.8)';
+setTimeout(() => {
+highlightBtn.style.boxShadow = '0 0 10px rgba(164, 63, 255, 0.2)';
+}, 1000);
+}
+
+function updateGraph() {
+simulation.nodes(nodes);
+simulation.force('link').links(links);
+simulation.alpha(1).restart();
+
+document.getElementById('loader').style.display = 'none';
+
+// Reset the refresh counter
+refreshCounter = 5;
+updateRefreshCounter();
+}
+
+function showError(message) {
+alert(message);
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+const width = document.getElementById('graph').clientWidth;
+const height = document.getElementById('graph').clientHeight;
+
+// Update SVG dimensions
+svg.attr('width', width).attr('height', height);
+
+// Resize Vanta effect if present
+if (window.vantaEffect) {
+window.vantaEffect.resize();
+}
+
+simulation.force('center', d3.forceCenter(width / 2, height / 2));
+simulation.alpha(0.3).restart();
+});
+
+// Clean up Vanta effect on page unload
+window.addEventListener('beforeunload', () => {
+if (window.vantaEffect) {
+window.vantaEffect.destroy();
+}
+});
+</script>
+</body>
+</html>
